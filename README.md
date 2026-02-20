@@ -40,6 +40,8 @@ cp .env.example .env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mini_ecommerce"
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="replace-with-a-long-random-string"
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
 ```
 
 4. Generate Prisma client and run migration
@@ -109,6 +111,16 @@ npm run prisma:seed
 
 - Admin: `admin@example.com` / `admin1234`
 - User: create from `/register`
+
+## Optional: Google OAuth
+
+If you want "Continue with Google" on `/login`:
+
+1. Create OAuth credentials in Google Cloud Console
+2. Add these authorized redirect URIs:
+   - `http://localhost:3000/api/auth/callback/google`
+   - your production URL equivalent
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`
 
 ## Scripts
 

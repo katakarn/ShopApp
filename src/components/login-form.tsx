@@ -3,13 +3,19 @@
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 
-export function LoginForm() {
-  const [isPending, setIsPending] = useState(false);
+type LoginFormProps = {
+  hasGoogleAuth: boolean;
+};
+
+export function LoginForm({ hasGoogleAuth }: LoginFormProps) {
+  const [isCredentialsPending, setIsCredentialsPending] = useState(false);
+  const [isGooglePending, setIsGooglePending] = useState(false);
   const [error, setError] = useState("");
+  const isPending = isCredentialsPending || isGooglePending;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsPending(true);
+    setIsCredentialsPending(true);
     setError("");
 
     const formData = new FormData(event.currentTarget);
@@ -23,7 +29,7 @@ export function LoginForm() {
       redirect: false
     });
 
-    setIsPending(false);
+    setIsCredentialsPending(false);
 
     if (!result || result.error) {
       setError("Invalid email or password");
@@ -33,8 +39,39 @@ export function LoginForm() {
     window.location.href = result.url ?? "/";
   }
 
+  async function onGoogleSignIn() {
+    setError("");
+    setIsGooglePending(true);
+
+    try {
+      await signIn("google", { callbackUrl: "/?flash=signed-in" });
+    } catch {
+      setError("Google sign-in failed. Please try again.");
+      setIsGooglePending(false);
+    }
+  }
+
   return (
     <form className="auth-form" onSubmit={onSubmit}>
+      {hasGoogleAuth ? (
+        <>
+          <button
+            type="button"
+            className="btn btn-outline btn-google"
+            onClick={onGoogleSignIn}
+            disabled={isPending}
+          >
+            <span className="google-mark" aria-hidden="true">
+              G
+            </span>
+            {isGooglePending ? "Connecting to Google..." : "Continue with Google"}
+          </button>
+          <div className="auth-divider" aria-hidden="true">
+            <span>or use email</span>
+          </div>
+        </>
+      ) : null}
+
       <label>
         Email
         <input name="email" type="email" required placeholder="you@example.com" />
@@ -52,7 +89,7 @@ export function LoginForm() {
       ) : null}
 
       <button className="btn" type="submit" disabled={isPending}>
-        {isPending ? "Signing in..." : "Sign in"}
+        {isCredentialsPending ? "Signing in..." : "Sign in"}
       </button>
     </form>
   );
