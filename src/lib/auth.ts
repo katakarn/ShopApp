@@ -28,14 +28,18 @@ const providers: NextAuthOptions["providers"] = [
         where: { email: parsed.data.email }
       });
 
-      if (!user?.passwordHash) {
-        return null;
-      }
+        if (!user?.passwordHash) {
+          return null;
+        }
 
-      const isValid = await compare(parsed.data.password, user.passwordHash);
-      if (!isValid) {
-        return null;
-      }
+        if (!user.emailVerified) {
+          throw new Error("EmailNotVerified");
+        }
+
+        const isValid = await compare(parsed.data.password, user.passwordHash);
+        if (!isValid) {
+          return null;
+        }
 
       return {
         id: user.id,

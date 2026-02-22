@@ -31,7 +31,17 @@ export function LoginForm({ hasGoogleAuth }: LoginFormProps) {
 
     setIsCredentialsPending(false);
 
-    if (!result || result.error) {
+    if (!result) {
+      setError("Unable to sign in right now. Please try again.");
+      return;
+    }
+
+    if (result.error === "EmailNotVerified") {
+      window.location.href = `/verify-email/sent?email=${encodeURIComponent(email)}`;
+      return;
+    }
+
+    if (result.error) {
       setError("Invalid email or password");
       return;
     }

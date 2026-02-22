@@ -10,6 +10,11 @@ import { auth } from "@/lib/auth";
 import { getCartSubtotal, getCurrentCart } from "@/lib/cart";
 import { canCheckoutItem } from "@/lib/checkout-logic";
 import {
+  createEmailVerificationToken,
+  createEmailVerificationUrl,
+  sendEmailVerificationLink
+} from "@/lib/email-verification";
+import {
   createOrderReceiptToken,
   getOrderReceiptCookieOptions,
   ORDER_RECEIPT_COOKIE
@@ -52,6 +57,10 @@ const registerSchema = z
     message: "Passwords do not match"
   });
 
+const resendVerificationSchema = z.object({
+  email: z.string().email()
+});
+
 const createProductSchema = z.object({
   name: z.string().min(2),
   description: z.string().min(10),
@@ -92,6 +101,26 @@ function refreshStorePages() {
   revalidatePath("/orders");
 }
 
+async function issueVerificationLink(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const { rawToken } = await createEmailVerificationToken(normalizedEmail);
+  const verificationUrl = createEmailVerificationUrl(normalizedEmail, rawToken);
+
+  let deliveryFailed = false;
+  try {
+    await sendEmailVerificationLink(normalizedEmail, verificationUrl);
+  } catch (error) {
+    deliveryFailed = true;
+    console.error("Failed to send verification email", error);
+  }
+
+  return {
+    email: normalizedEmail,
+    verificationUrl,
+    deliveryFailed
+  };
+}
+
 async function requireAdminUser() {
   const session = await auth();
   const user = session?.user;
@@ -115,23 +144,87 @@ export async function registerUserAction(formData: FormData) {
     redirect("/register?error=invalid");
   }
 
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+
   const exists = await prisma.user.findUnique({
-    where: { email: parsed.data.email }
+    where: { email: normalizedEmail },
+    select: { emailVerified: true }
   });
 
   if (exists) {
+    if (!exists.emailVerified) {
+      const linkState = await issueVerificationLink(normalizedEmail);
+      const params = new URLSearchParams({
+        email: linkState.email
+      });
+      params.set("resent", "1");
+      if (linkState.deliveryFailed) {
+        params.set("delivery", "failed");
+      }
+      if (process.env.NODE_ENV !== "production") {
+        params.set("devLink", linkState.verificationUrl);
+      }
+      redirect(`/verify-email/sent?${params.toString()}`);
+    }
     redirect("/register?error=exists");
   }
 
   await prisma.user.create({
     data: {
       name: parsed.data.name,
-      email: parsed.data.email,
+      email: normalizedEmail,
       passwordHash: await hash(parsed.data.password, 10)
     }
   });
 
-  redirect("/login?registered=1");
+  const linkState = await issueVerificationLink(normalizedEmail);
+  const params = new URLSearchParams({
+    email: linkState.email
+  });
+  if (linkState.deliveryFailed) {
+    params.set("delivery", "failed");
+  }
+  if (process.env.NODE_ENV !== "production") {
+    params.set("devLink", linkState.verificationUrl);
+  }
+  redirect(`/verify-email/sent?${params.toString()}`);
+}
+
+export async function resendVerificationEmailAction(formData: FormData) {
+  const parsed = resendVerificationSchema.safeParse({
+    email: formData.get("email")
+  });
+
+  if (!parsed.success) {
+    redirect("/verify-email/sent?error=invalid");
+  }
+
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+  const existingUser = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { emailVerified: true }
+  });
+
+  if (existingUser?.emailVerified) {
+    redirect("/login?verified=1");
+  }
+
+  const params = new URLSearchParams({
+    email: normalizedEmail,
+    resent: "1"
+  });
+
+  if (existingUser) {
+    const linkState = await issueVerificationLink(normalizedEmail);
+    if (linkState.deliveryFailed) {
+      params.set("delivery", "failed");
+    }
+    if (process.env.NODE_ENV !== "production") {
+      params.set("devLink", linkState.verificationUrl);
+    }
+  }
+
+  redirect(`/verify-email/sent?${params.toString()}`);
 }
 
 export async function addToCartAction(formData: FormData) {

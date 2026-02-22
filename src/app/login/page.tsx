@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LoginForm } from "@/components/login-form";
 
 type LoginPageProps = {
-  searchParams?: Promise<{ registered?: string; error?: string }>;
+  searchParams?: Promise<{ registered?: string; verified?: string; error?: string; email?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -17,7 +17,23 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Account created. Please sign in.
         </p>
       ) : null}
-      {params?.error ? (
+      {params?.verified ? (
+        <p className="notice" role="status" aria-live="polite">
+          Email verified. You can sign in now.
+        </p>
+      ) : null}
+      {params?.error === "verify-expired" ? (
+        <p className="error-text" role="alert" aria-live="assertive">
+          Verification link expired.{" "}
+          <Link href={`/verify-email/sent?email=${encodeURIComponent(params?.email ?? "")}`}>Request a new one</Link>.
+        </p>
+      ) : null}
+      {params?.error === "verify-invalid" ? (
+        <p className="error-text" role="alert" aria-live="assertive">
+          Verification link is invalid.
+        </p>
+      ) : null}
+      {params?.error && params.error !== "verify-expired" && params.error !== "verify-invalid" ? (
         <p className="error-text" role="alert" aria-live="assertive">
           Sign-in failed. Please try again.
         </p>

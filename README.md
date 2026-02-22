@@ -6,13 +6,14 @@ Portfolio-ready e-commerce app with product catalog, cart, checkout (mock paymen
 
 - Next.js 15 (App Router, TypeScript)
 - Prisma + PostgreSQL
-- NextAuth (Credentials)
+- NextAuth (Credentials + optional Google OAuth)
 - Server Actions
 
 ## Features
 
 - Product listing and product detail page
 - Session/Account-aware cart (guest cart merges after sign-in)
+- Email verification flow for credentials signup
 - Checkout flow with stock validation and mock order placement
 - User order history
 - Admin dashboard with:
@@ -42,6 +43,8 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="replace-with-a-long-random-string"
 GOOGLE_CLIENT_ID=""
 GOOGLE_CLIENT_SECRET=""
+RESEND_API_KEY=""
+EMAIL_FROM="ShopApp <noreply@example.com>"
 ```
 
 4. Generate Prisma client and run migration
@@ -121,6 +124,26 @@ If you want "Continue with Google" on `/login`:
    - `http://localhost:3000/api/auth/callback/google`
    - your production URL equivalent
 3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`
+
+## Optional: Real Email Delivery (Resend)
+
+If you want real verification emails:
+
+1. Create API key in Resend
+2. Set `RESEND_API_KEY` and `EMAIL_FROM` in `.env`
+
+Without those variables, development mode prints and exposes a local verify link on `/verify-email/sent`.
+
+## Test Email Verification
+
+1. Register a new account from `/register`
+2. You will be redirected to `/verify-email/sent`
+3. In development, click `Verify now` from that page
+4. Sign in from `/login`
+
+Expected behavior:
+- Sign in fails with unverified credentials account
+- After verify, sign in succeeds
 
 ## Scripts
 
